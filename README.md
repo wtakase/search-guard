@@ -1,6 +1,6 @@
-#Search Guard for Elasticsearch 2.2 **ALPHA 2**
+#Search Guard for Elasticsearch 2.1.1 **ALPHA 2**
 
-First alpha release for Search Guard 2 (compatible with Elasticsearch 2.2)
+Second alpha release for Search Guard 2 (compatible with Elasticsearch 2.1.1)
 
 ##Roadmap
 This is almost a complete rewrite of Search Guard 1 which comes with a lot of new features:
@@ -23,10 +23,10 @@ We expect to release a beta in February. By end of February the RC should be rea
 ##Installation
 
 * Install latest version of [search-guard-ssl plugin](https://github.com/floragunncom/search-guard-ssl)
- * ``sudo bin/plugin install com.floragunn/search-guard-ssl/2.2.0.6``
+ * ``sudo bin/plugin install com.floragunn/search-guard-ssl/2.1.1.5``
 
 * Install search-guard-2 plugin
- * ``sudo bin/plugin install com.floragunn/search-guard-2/2.2.0.0-alpha2``
+ * ``sudo bin/plugin install com.floragunn/search-guard-2/2.1.1.0-alpha2``
 
 Both plugins need to be installed on every node in the cluster. Tribe nodes are not yet supported.
 
