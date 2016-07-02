@@ -580,6 +580,27 @@ public class SGTests extends AbstractUnitTest {
             Assert.assertTrue(res.getBody().contains("additionalrole2"));
             Assert.assertFalse(res.getBody().contains("starfleet"));
         }
+        
+        try (TransportClient tc = TransportClient.builder().settings(tcSettings).addPlugin(SearchGuardSSLPlugin.class).build()) {
+            
+            log.debug("Start transport client to init");
+            
+            tc.addTransportAddress(new InetSocketTransportAddress(new InetSocketAddress(nodeHost, nodePort)));
+            Assert.assertEquals(3, tc.admin().cluster().nodesInfo(new NodesInfoRequest()).actionGet().getNodes().length);
+            tc.index(new IndexRequest("searchguard").type("config").refresh(true).id("0").source(readYamlContent("sg_config_host.yml"))).actionGet();
+           }
+        Thread.sleep(2000);  
+        
+        for (Iterator iterator = httpAdresses.iterator(); iterator.hasNext();) {
+            InetSocketTransportAddress inetSocketTransportAddress = (InetSocketTransportAddress) iterator.next();
+            HttpResponse res = executeRequest(new HttpGet("http://"+inetSocketTransportAddress.getHost()+":"+inetSocketTransportAddress.getPort() + "/" + "_searchguard/authinfo?pretty=true"));
+            log.debug(res.getBody());
+            Assert.assertTrue(res.getBody().contains("sg_role_host1"));
+            Assert.assertTrue(res.getBody().contains("sg_role_host2"));
+            Assert.assertTrue(res.getBody().contains("sg_host_127.0.0.1"));
+            Assert.assertTrue(res.getBody().contains("roles=[]"));
+            Assert.assertEquals(200, res.getStatusCode());
+        }
     }
     
     @Test
@@ -968,7 +989,7 @@ public class SGTests extends AbstractUnitTest {
                 gr = tc.prepareGet("vulcan", "secrets", "s1").putHeader("sg_impersonate_as", "gkar").get();
                 Assert.fail();
             } catch (ElasticsearchSecurityException e) {
-               Assert.assertEquals("CN=spock,OU=client,O=client,L=Test,C=DE is not allowed to impersonate as gkar", e.getMessage());
+               Assert.assertEquals("'CN=spock,OU=client,O=client,L=Test,C=DE' is not allowed to impersonate as 'gkar'", e.getMessage());
             }
             
             System.out.println("------- 12 ---------");
@@ -1504,6 +1525,97 @@ public class SGTests extends AbstractUnitTest {
             
             Assert.assertEquals(3, tc.admin().cluster().nodesInfo(nir).actionGet().getNodes().length);
             
+            
+            System.out.println("------- TRC end ---------");
+        }
+        
+        System.out.println("------- CTC end ---------");
+    }
+    
+    @Test
+    public void testTransportClientImpersonationWildcard() throws Exception {
+    
+        final Settings settings = Settings.settingsBuilder().put("searchguard.ssl.transport.enabled", true)
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_HTTP_ENABLE_OPENSSL_IF_AVAILABLE, allowOpenSSL)
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_ENABLE_OPENSSL_IF_AVAILABLE, allowOpenSSL)
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_ALIAS, "node-0")
+                .put("searchguard.ssl.transport.keystore_filepath", getAbsoluteFilePathFromClassPath("node-0-keystore.jks"))
+                .put("searchguard.ssl.transport.truststore_filepath", getAbsoluteFilePathFromClassPath("truststore.jks"))
+                .put("searchguard.ssl.transport.enforce_hostname_verification", false)
+                .put("searchguard.ssl.transport.resolve_hostname", false)
+                .putArray("searchguard.authcz.admin_dn", "CN=kirk,OU=client,O=client,l=tEst, C=De")
+                
+                /*
+                searchguard.authcz.impersonation_dn:
+                  "cn=technical_user1,ou=Test,ou=ou,dc=company,dc=com":
+                    - '*'
+                  "cn=webuser,ou=IT,ou=IT,dc=company,dc=com":
+                    - 'kirk'
+                    - 'user1'
+                 
+                 */
+                
+                .putArray("searchguard.authcz.impersonation_dn.CN=spock,OU=client,O=client,L=Test,C=DE", "*")
+                .build();
+        
+        System.out.println(settings.getAsMap());
+    
+        startES(settings);
+    
+        Settings tcSettings = Settings.builder().put("cluster.name", clustername)
+                .put(settings)
+                .put("searchguard.ssl.transport.keystore_filepath", getAbsoluteFilePathFromClassPath("kirk-keystore.jks"))
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_ALIAS,"kirk")
+                .put("path.home", ".").build();
+    
+        try (TransportClient tc = TransportClient.builder().settings(tcSettings).addPlugin(SearchGuardSSLPlugin.class).build()) {
+            
+            log.debug("Start transport client to init");
+            
+            tc.addTransportAddress(new InetSocketTransportAddress(new InetSocketAddress(nodeHost, nodePort)));
+            Assert.assertEquals(3, tc.admin().cluster().nodesInfo(new NodesInfoRequest()).actionGet().getNodes().length);
+    
+            tc.admin().indices().create(new CreateIndexRequest("searchguard")).actionGet();
+            tc.index(new IndexRequest("searchguard").type("dummy").id("0").refresh(true).source(readYamlContent("sg_config.yml"))).actionGet();
+            
+            System.out.println("------- Begin INIT ---------");
+            
+            //Thread.sleep(5000);
+            
+            tc.index(new IndexRequest("searchguard").type("config").id("0").refresh(true).source(readYamlContent("sg_config.yml"))).actionGet();
+            tc.index(new IndexRequest("searchguard").type("internalusers").refresh(true).id("0").source(readYamlContent("sg_internal_users.yml"))).actionGet();
+            tc.index(new IndexRequest("searchguard").type("roles").id("0").refresh(true).source(readYamlContent("sg_roles.yml"))).actionGet();
+            tc.index(new IndexRequest("searchguard").type("rolesmapping").refresh(true).id("0").source(readYamlContent("sg_roles_mapping.yml"))).actionGet();
+            tc.index(new IndexRequest("searchguard").type("actiongroups").refresh(true).id("0").source(readYamlContent("sg_action_groups.yml"))).actionGet();
+            
+            tc.index(new IndexRequest("starfleet").type("ships").refresh(true).source("{\"content\":1}")).actionGet();
+            
+            //init is somewhat async
+            Thread.sleep(2000);
+        
+        }
+        
+        System.out.println("------- INIT complete ---------");
+        
+        tcSettings = Settings.builder().put("cluster.name", clustername)
+                .put(settings)
+                .put("searchguard.ssl.transport.keystore_filepath", getAbsoluteFilePathFromClassPath("spock-keystore.jks"))
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_ALIAS,"spock")
+                .put("path.home", ".")
+                .put("request.headers.sg_impersonate_as", "worf")
+                .build();
+    
+        System.out.println("------- 0 ---------");
+        
+        try (TransportClient tc = TransportClient.builder().settings(tcSettings).addPlugin(SearchGuardSSLPlugin.class).build()) {
+            
+            log.debug("Start transport client to use");
+            
+            tc.addTransportAddress(new InetSocketTransportAddress(new InetSocketAddress(nodeHost, nodePort)));
+            NodesInfoRequest nir = new NodesInfoRequest();
+            //nir.putHeader("_sg_request.headers.sg_impersonate_as", "worf1111");
+            
+            Assert.assertEquals(3, tc.admin().cluster().nodesInfo(nir).actionGet().getNodes().length);
             
             System.out.println("------- TRC end ---------");
         }

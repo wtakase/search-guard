@@ -57,6 +57,7 @@ import com.floragunn.searchguard.configuration.ConfigChangeListener;
 import com.floragunn.searchguard.filter.SearchGuardRestFilter;
 import com.floragunn.searchguard.http.HTTPBasicAuthenticator;
 import com.floragunn.searchguard.http.HTTPClientCertAuthenticator;
+import com.floragunn.searchguard.http.HTTPHostAuthenticator;
 import com.floragunn.searchguard.http.HTTPProxyAuthenticator;
 import com.floragunn.searchguard.http.XFFResolver;
 import com.floragunn.searchguard.support.ConfigConstants;
@@ -130,6 +131,8 @@ public class BackendRegistry implements ConfigChangeListener {
         authImplMap.put("proxy_h", HTTPProxyAuthenticator.class.getName());
         authImplMap.put("clientcert_h", HTTPClientCertAuthenticator.class.getName());
         authImplMap.put("kerberos_h", "com.floragunn.dlic.auth.http.kerberos.HTTPSpnegoAuthenticator");
+        authImplMap.put("jwt_h", "com.floragunn.dlic.auth.http.jwt.HTTPJwtAuthenticator");
+        authImplMap.put("host_h", HTTPHostAuthenticator.class.getName());
     }
     
     public void invalidateCache() {
@@ -152,6 +155,7 @@ public class BackendRegistry implements ConfigChangeListener {
             final Constructor<T> tctor = t.getConstructor(Settings.class);
             return tctor.newInstance(settings);
         } catch (final Exception e) {
+            log.warn("Unable to create instance of class {} with (Settings.class) constructor due to {}", e, t, e.toString());
             final Constructor<T> tctor = t.getConstructor(Settings.class, TransportConfigUpdateAction.class);
             return tctor.newInstance(settings, tcua);
         }
@@ -239,14 +243,18 @@ public class BackendRegistry implements ConfigChangeListener {
             final AuthDomain authDomain = (AuthDomain) iterator.next();
             User authenticatedUser = null;
             
-            log.debug("Transport User '{}' is in cache? {} (cache size: {})", user.getName(), userCacheTransport.getIfPresent(user.getName())!=null, userCacheTransport.size());
+            if(log.isDebugEnabled()) {
+                log.debug("Transport User '{}' is in cache? {} (cache size: {})", user.getName(), userCacheTransport.getIfPresent(user.getName())!=null, userCacheTransport.size());
+            }
             
             try {
                 try {
                     authenticatedUser = userCacheTransport.get(user.getName(), new Callable<User>() {
                         @Override
                         public User call() throws Exception {
-                            log.debug(user.getName()+" not cached, return from backend directly");
+                            if(log.isDebugEnabled()) {
+                                log.debug(user.getName()+" not cached, return from backend directly");
+                            }
                             if(authDomain.getBackend().exists(user)) {
                                 for (final AuthorizationBackend ab : authorizers) {
                                     
@@ -255,7 +263,7 @@ public class BackendRegistry implements ConfigChangeListener {
                                     try {
                                         ab.fillRoles(user, new AuthCredentials(user.getName()));
                                     } catch (Exception e) {
-                                        log.debug("Problems retrieving roles for {} from {}", user, ab.getClass());
+                                        log.error("Problems retrieving roles for {} from {}", user, ab.getClass());
                                     }
                                 }
                                 return user;
@@ -264,7 +272,8 @@ public class BackendRegistry implements ConfigChangeListener {
                         }
                     });
                 } catch (Exception e) {
-                    throw new ElasticsearchSecurityException("", e.getCause());
+                    log.error("Unexpected exception {} ", e, e.toString());
+                    throw new ElasticsearchSecurityException(e.toString(), e);
                 }
                 
                 if(authenticatedUser == null) {
@@ -278,7 +287,9 @@ public class BackendRegistry implements ConfigChangeListener {
                 }
                 
                  //authenticatedUser.addRoles(ac.getBackendRoles());
-                log.debug("User '{}' is authenticated", authenticatedUser);
+                if(log.isDebugEnabled()) {
+                    log.debug("User '{}' is authenticated", authenticatedUser);
+                }
                 request.putInContext(ConfigConstants.SG_USER, authenticatedUser);
                 return true;
             } catch (final ElasticsearchSecurityException e) {
@@ -324,18 +335,26 @@ public class BackendRegistry implements ConfigChangeListener {
         
         AuthCredentials authCredenetials = null;
         
+        HTTPAuthenticator firstChallengingHttpAuthenticator = null;
+        
         for (final Iterator<AuthDomain> iterator = new TreeSet<AuthDomain>(authDomains).iterator(); iterator.hasNext();) {
 
             final AuthDomain authDomain = iterator.next();
             
             final HTTPAuthenticator httpAuthenticator = authDomain.getHttpAuthenticator();
+            
+            if(authDomain.isChallenge() && firstChallengingHttpAuthenticator == null) {
+                firstChallengingHttpAuthenticator = httpAuthenticator;
+            }
 
-            log.debug("Try to extract auth creds from http {} "+httpAuthenticator.getType());
+            if(log.isDebugEnabled()) {
+                log.debug("Try to extract auth creds from http {} ",httpAuthenticator.getType());
+            }
             final AuthCredentials ac;
             try {
                 ac = httpAuthenticator.extractCredentials(request);
             } catch (Exception e1) {
-                log.info("{} extracting credentials from {}", e1.toString(), httpAuthenticator.getType());
+                log.info("{} extracting credentials from {}", e1, e1.toString(), httpAuthenticator.getType());
                 continue;
             }
             authCredenetials = ac;
@@ -370,14 +389,18 @@ public class BackendRegistry implements ConfigChangeListener {
             } 
             ////credentials found in request and they are complete
 
-            log.debug("User '{}' is in cache? {} (cache size: {})", ac.getUsername(), userCache.getIfPresent(ac)!=null, userCache.size());
+            if(log.isDebugEnabled()) {
+                log.debug("User '{}' is in cache? {} (cache size: {})", ac.getUsername(), userCache.getIfPresent(ac)!=null, userCache.size());
+            }
             
             try {
                 try {
                     authenticatedUser = userCache.get(ac, new Callable<User>() {
                         @Override
                         public User call() throws Exception {
-                            log.debug(ac.getUsername()+" ("+ac.hashCode()+") not cached, return from backend directly");
+                            if(log.isDebugEnabled()) {
+                                log.debug(ac.getUsername()+" ("+ac.hashCode()+") not cached, return from "+authDomain.getBackend().getType()+" backend directly");
+                            }
                             User authenticatedUser = authDomain.getBackend().authenticate(ac);
                             for (final AuthorizationBackend ab : authorizers) {
                                 
@@ -386,7 +409,7 @@ public class BackendRegistry implements ConfigChangeListener {
                                 try {
                                     ab.fillRoles(authenticatedUser, new AuthCredentials(authenticatedUser.getName()));
                                 } catch (Exception e) {
-                                    log.debug("Problems retrieving roles for {} from {}", authenticatedUser, ab.getClass());
+                                    log.error("Problems retrieving roles for {} from {}", authenticatedUser, ab.getClass());
                                 }
                             }
                             //authDomain.getAbackend().fillRoles(authenticatedUser, new AuthCredentials(authenticatedUser.getName(), (Object) null));
@@ -394,7 +417,8 @@ public class BackendRegistry implements ConfigChangeListener {
                         }
                     });
                 } catch (Exception e) {
-                    throw new ElasticsearchSecurityException("", e.getCause());
+                    log.error("Unexpected exception {} ", e, e.toString());
+                    throw new ElasticsearchSecurityException(e.toString(), e);
                 } finally {
                     ac.clearSecrets();
                 }
@@ -411,7 +435,9 @@ public class BackendRegistry implements ConfigChangeListener {
                 }
                 
                  //authenticatedUser.addRoles(ac.getBackendRoles());
-                log.debug("User '{}' is authenticated", authenticatedUser);
+                if(log.isDebugEnabled()) {
+                    log.debug("User '{}' is authenticated", authenticatedUser);
+                }
                 request.putInContext(ConfigConstants.SG_USER, authenticatedUser);
                 authenticated = true;
                 break;
@@ -430,12 +456,21 @@ public class BackendRegistry implements ConfigChangeListener {
             
             if(authCredenetials == null && anonymousAuthEnabled) {
                 request.putInContext(ConfigConstants.SG_USER, User.ANONYMOUS);
-                log.debug("Anonymous User is authenticated");
+                if(log.isDebugEnabled()) {
+                    log.debug("Anonymous User is authenticated");
+                }
                 return true;
             }
             
+            if(firstChallengingHttpAuthenticator != null) {
+                if(firstChallengingHttpAuthenticator.reRequestAuthentication(channel, null)) {
+                    return false;
+                }
+            }
             
-            log.debug("Authentication finally failed");
+            if(log.isDebugEnabled()) {
+                log.debug("Authentication finally failed");
+            }
             auditLog.logFailedLogin(authCredenetials == null ? null:authCredenetials.getUsername(), request);
             channel.sendResponse(new BytesRestResponse(RestStatus.UNAUTHORIZED));
             return false;
@@ -469,18 +504,20 @@ public class BackendRegistry implements ConfigChangeListener {
         User aU = origPKIuser;
 
         if (adminDns.isAdmin(impersonatedUser)) {
-            throw new ElasticsearchSecurityException(origPKIuser.getName() + " is not allowed to impersonate as adminuser  " + impersonatedUser);
+            throw new ElasticsearchSecurityException("'"+origPKIuser.getName() + "' is not allowed to impersonate as an adminuser  '" + impersonatedUser+"'");
         }
         
         try {
             if (impersonatedUser != null && !adminDns.isImpersonationAllowed(new LdapName(origPKIuser.getName()), impersonatedUser)) {
-                throw new ElasticsearchSecurityException(origPKIuser.getName() + " is not allowed to impersonate as " + impersonatedUser);
+                throw new ElasticsearchSecurityException("'"+origPKIuser.getName() + "' is not allowed to impersonate as '" + impersonatedUser+"'");
             } else if (impersonatedUser != null) {
                 aU = new User(impersonatedUser);
-                log.debug("Impersonate from '{}' to '{}'",origPKIuser.getName(), impersonatedUser);
+                if(log.isDebugEnabled()) {
+                    log.debug("Impersonate from '{}' to '{}'",origPKIuser.getName(), impersonatedUser);
+                }
             }
         } catch (final InvalidNameException e1) {
-            throw new ElasticsearchSecurityException("PKI does not have a valid name (" + origPKIuser.getName() + "), should never happen",
+            throw new ElasticsearchSecurityException("PKI does not have a valid name ('" + origPKIuser.getName() + "'), should never happen",
                     e1);
         }
 

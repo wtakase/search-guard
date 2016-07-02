@@ -1,8 +1,12 @@
+# In this file users, backendroles and hosts can be mapped to search guard roles.
+# What a role is allowed to do you specify in sg_roles.yml
+
 sg_role_starfleet:
   backendroles:
     - starfleet
     - captains
     - defectors
+    - 'cn=ldaprole,ou=groups,dc=example,dc=com'
   hosts:
     - "*.starfleetintranet.com"
   users:
@@ -35,6 +39,7 @@ sg_kibana4:
 sg_all_access:
   users:
     - admin
+    - adm
     
 sg_public:
   users:
@@ -43,3 +48,13 @@ sg_public:
 sg_readall:
   users:
     - readall
+    - riker
+    - troid
+    
+sg_readonly_dlsfls:
+  users:
+    - dlsflsuser
+    
+sg_kibana4_testindex:
+  users:
+    - test    

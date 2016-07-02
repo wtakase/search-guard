@@ -22,16 +22,20 @@
 # at the beginning and the challenging one at the end. If you configure more than one challenging authenticator you have to deal with
 # the "challenge" flag. Because its not possible to challenge a client with two different authentication methods (for example
 # Kerberos and Basic) only one can have challenge: true. All others need to have challenge: false and that means
-# they look into the request and if they found no credentials they will not challenge. Default is true.
+# they look into the request and if they found no credentials they will not challenge. You can cope with this situation
+# with pre-authentication. That is submitting credentials for non-challenging authenticators within the first request
+# (Thats especially easy for Basic authentication). 
+# Default value of the challenge flag is true.
 #
 # 
-#
 #
 # HTTP
 #   basic (challenging)
 #   proxy (not challenging, needs xff)
 #   kerberos (challenging) NOT FREE FOR COMMERCIAL
 #   clientcert (not challenging, needs https)
+#   jwt (not challenging) NOT FREE FOR COMMERCIAL
+#   host (not challenging)
 
 # Authc
 #   internal
@@ -44,23 +48,6 @@
 
 searchguard:
   dynamic:
-    audit: # NOT FREE FOR COMMERCIAL USE
-      type: external_elasticsearch #stores auditlog in another elasticsearch cluster
-      config:
-        http_endpoints:
-          - audit1.example.com
-          - audit1.example.com
-          - 192.168.2.3
-        index: audit
-        type: audit
-        # use https
-        enable_ssl: true
-        # send client certificate
-        enable_ssl_client_auth
-        # verify server name
-        verify_hostnames: true
-    #audit: # NOT FREE FOR COMMERCIAL USE
-    #  type: internal_elasticsearch #stores auditlog in the same cluster
     http:
       anonymous_auth_enabled: false
       xff:
@@ -77,36 +64,30 @@ searchguard:
     authc:
       kerberos_auth_domain: 
         enabled: false
-        order: 0
+        order: 6
         http_authenticator:
           type: kerberos # NOT FREE FOR COMMERCIAL USE
-          challenge: false
+          challenge: true
           config:
             # If true a lot of kerberos/security related debugging output will be logged to standard out
-            krb_debug: true
-            # The absolute path or relative path to config/ directory
-            # to krb5.conf file
-            krb5_file_path: /etc/krb5.conf
+            krb_debug: false
             # Acceptor (Server) Principal name, must be present in acceptor_keytab_path file
             acceptor_principal: 'HTTP/localhost'
-            # The absolute path or relative path to config/ directory
-            # to the keytab where the acceptor_principal credentials are stored.
-            acceptor_keytab_path: eskeytab.tab
             # If true then the realm will be stripped from the user name
             strip_realm_from_principal: true
         authentication_backend:
           type: noop
       basic_internal_auth_domain: 
         enabled: true
-        order: 1
+        order: 4
         http_authenticator:
           type: basic
-          challenge: false
+          challenge: true
         authentication_backend:
           type: intern
       proxy_auth_domain:
         enabled: false
-        order: 2
+        order: 3
         http_authenticator:
           type: proxy
           challenge: false
@@ -115,9 +96,31 @@ searchguard:
             roles_header: "x-proxy-roles"
         authentication_backend:
           type: noop
+      host_auth_domain:
+        enabled: false
+        order: 1
+        http_authenticator:
+          type: host
+          challenge: false
+        authentication_backend:
+          type: noop
+      jwt_auth_domain:
+        enabled: false
+        order: 0
+        http_authenticator:
+          type: jwt
+          challenge: false
+          config:
+            signing_key: "base64 encoded key"
+            jwt_header: "Authorization"
+            jwt_url_parameter: null
+            roles_key: null
+            subject_key: null
+        authentication_backend:
+          type: noop
       clientcert_auth_domain:
         enabled: false
-        order: 4
+        order: 2
         http_authenticator:
           type: clientcert
           challenge: false
@@ -125,7 +128,7 @@ searchguard:
           type: noop
       ldap:
         enabled: false
-        order: 3
+        order: 5
         http_authenticator:
           type: basic
           challenge: false
@@ -184,6 +187,12 @@ searchguard:
             rolename: cn
             # Resolve nested roles transitive (roles which are members of other roles and so on ...)
             resolve_nested_roles: true
+            
+            userbase: 'ou=people,dc=example,dc=com'
+            # Filter to search for users (currently in the whole subtree beneath userbase)
+            # {0} is substituted with the username 
+            usersearch: '(uid={0})'
+            
       roles_from_another_ldap:
         enabled: false
         authorization_backend:

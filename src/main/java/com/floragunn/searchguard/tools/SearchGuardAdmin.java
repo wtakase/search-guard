@@ -17,20 +17,24 @@
 
 package com.floragunn.searchguard.tools;
 
-import java.io.FileNotFoundException;
+import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Reader;
+import java.io.Writer;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.Locale;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.elasticsearch.action.WriteConsistencyLevel;
@@ -38,8 +42,13 @@ import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
+import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
+import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsResponse;
+import org.elasticsearch.action.get.GetRequest;
+import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
@@ -50,11 +59,33 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.common.xcontent.XContentType;
 
 import com.floragunn.searchguard.SearchGuardPlugin;
+import com.floragunn.searchguard.action.configupdate.ConfigUpdateAction;
+import com.floragunn.searchguard.action.configupdate.ConfigUpdateRequest;
 import com.floragunn.searchguard.ssl.SearchGuardSSLPlugin;
+import com.floragunn.searchguard.ssl.util.SSLConfigConstants;
 
 public class SearchGuardAdmin {
+    
+    public static void main(final String[] args) {
+        try {
+            main0(args);
+        } catch (NoNodeAvailableException e) {
+            System.out.println("ERR: Cannot connect to elasticsearch. Please refer to elasticsearch logfile for more information");
+            System.out.println("Trace:");
+            e.printStackTrace();
+            System.exit(-1);
+        } 
+        catch (Exception e) {
+            System.out.println("ERR: An unexpected "+e.getClass().getSimpleName()+" occured: "+e.getMessage());
+            System.out.println("Trace:");
+            e.printStackTrace();
+            System.exit(-1);
+        }
+    }
 
-    public static void main(final String[] args) throws Exception {
+    private static void main0(final String[] args) throws Exception {
+        
+        System.setProperty("sg.nowarn.client","true");
 
         final HelpFormatter formatter = new HelpFormatter();
         Options options = new Options();
@@ -66,12 +97,19 @@ public class SearchGuardAdmin {
         options.addOption(Option.builder("kspass").longOpt("keystore-password").hasArg().argName("password").desc("Keystore password").build());
         options.addOption(Option.builder("cd").longOpt("configdir").hasArg().argName("directory").desc("Directory for config files").build());
         options.addOption(Option.builder("h").longOpt("hostname").hasArg().argName("host").desc("Elasticsearch host").build());
-        options.addOption(Option.builder("p").longOpt("port").hasArg().argName("port").desc("Elasticsearch port").build());
+        options.addOption(Option.builder("p").longOpt("port").hasArg().argName("port").desc("Elasticsearch transport port (normally 9300)").build());
         options.addOption(Option.builder("cn").longOpt("clustername").hasArg().argName("clustername").desc("Clustername").build());
         options.addOption( "sniff", "enable-sniffing", false, "Enable client.transport.sniff" );
         options.addOption( "icl", "ignore-clustername", false, "Ignore clustername" );
+        options.addOption(Option.builder("r").longOpt("retrieve").desc("retrieve current config").build());
         options.addOption(Option.builder("f").longOpt("file").hasArg().argName("file").desc("file").build());
         options.addOption(Option.builder("t").longOpt("type").hasArg().argName("file-type").desc("file-type").build());
+        options.addOption(Option.builder("tsalias").longOpt("truststore-alias").hasArg().argName("alias").desc("Truststore alias").build());
+        options.addOption(Option.builder("ksalias").longOpt("keystore-alias").hasArg().argName("alias").desc("Keystore alias").build());
+        options.addOption(Option.builder("ec").longOpt("enabled-ciphers").hasArg().argName("cipers").desc("Comma separated list of TLS ciphers").build());
+        options.addOption(Option.builder("ep").longOpt("enabled-protocols").hasArg().argName("protocols").desc("Comma separated list of TLS protocols").build());
+        options.addOption(Option.builder("us").longOpt("update_settings").hasArg().argName("number of replicas").desc("update settings").build());
+
         
         String hostname = "localhost";
         int port = 9300;
@@ -87,6 +125,12 @@ public class SearchGuardAdmin {
         String clustername = "elasticsearch";
         String file = null;
         String type = null;
+        boolean retrieve = false;
+        String ksAlias = null;
+        String tsAlias = null;
+        String[] enabledProtocols = new String[0];
+        String[] enabledCiphers = new String[0];
+        Integer updateSettings = null;
         
         CommandLineParser parser = new DefaultParser();
         try {
@@ -96,6 +140,11 @@ public class SearchGuardAdmin {
             kspass = line.getOptionValue("kspass", kspass); //TODO null? //when no passwd is set
             tspass = line.getOptionValue("tspass", tspass); //TODO null? //when no passwd is set
             cd = line.getOptionValue("cd", cd);
+            
+            if(!cd.endsWith(File.separator)) {
+                cd += File.separator;
+            }
+            
             ks = line.getOptionValue("ks");
             ts = line.getOptionValue("ts");
             nhnv = line.hasOption("nhnv");
@@ -105,6 +154,23 @@ public class SearchGuardAdmin {
             icl = line.hasOption("icl");
             file = line.getOptionValue("f", file);
             type = line.getOptionValue("t", type);
+            retrieve = line.hasOption("r");
+            ksAlias = line.getOptionValue("ksalias", ksAlias);
+            tsAlias = line.getOptionValue("tsalias", tsAlias);
+            
+            String enabledCiphersString = line.getOptionValue("ec", null);
+            String enabledProtocolsString = line.getOptionValue("ep", null);
+            
+            if(enabledCiphersString != null) {
+                enabledCiphers = enabledCiphersString.split(",");
+            }
+            
+            if(enabledProtocolsString != null) {
+                enabledProtocols = enabledProtocolsString.split(",");
+            }
+            
+            updateSettings = line.hasOption("us")?Integer.parseInt(line.getOptionValue("us")):null;
+            
         }
         catch( ParseException exp ) {
             System.err.println("Parsing failed.  Reason: " + exp.getMessage());
@@ -112,6 +178,10 @@ public class SearchGuardAdmin {
             return;
         }
         
+        if(port == 9200) {
+            System.out.println("WARNING: Seems you want connect to the default HTTP port 9200."+System.lineSeparator()
+                             + "         sgadmin connect through the transport port which is normally 9300.");
+        }
         
         System.out.println("Connect to "+hostname+":"+port);
         Socket socket = new Socket();
@@ -131,26 +201,54 @@ public class SearchGuardAdmin {
             }
           }
 
-        final Settings settings = Settings
+        final Settings.Builder settingsBuilder = Settings
                 .builder()
                 .put("path.home", ".")
                 .put("path.conf", ".")
-                .put("searchguard.ssl.transport.keystore_filepath", ks)
-                .put("searchguard.ssl.transport.truststore_filepath", ts)
-                .put("searchguard.ssl.transport.keystore_password", kspass)
-                .put("searchguard.ssl.transport.truststore_password", tspass)
-                .put("searchguard.ssl.transport.enforce_hostname_verification", !nhnv)
-                .put("searchguard.ssl.transport.resolve_hostname", !nrhn)
-                .put("searchguard.ssl.transport.enabled", true)
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_FILEPATH, ks)
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_FILEPATH, ts)
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_PASSWORD, kspass)
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_PASSWORD, tspass)
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION, !nhnv)
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_ENFORCE_HOSTNAME_VERIFICATION_RESOLVE_HOST_NAME, !nrhn)
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_ENABLED, true)
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_TYPE, ks.endsWith(".jks")?"JKS":"PKCS12")
+                .put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_TYPE, ts.endsWith(".jks")?"JKS":"PKCS12")
+                
+                .putArray(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_ENABLED_CIPHERS, enabledCiphers)
+                .putArray(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_ENABLED_PROTOCOLS, enabledProtocols)
+                
                 .put("cluster.name", clustername)
                 .put("client.transport.ignore_cluster_name", icl)
-                .put("client.transport.sniff", sniff)
-                .build();
+                .put("client.transport.sniff", sniff);
+                
+                if(ksAlias != null) {
+                    settingsBuilder.put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_KEYSTORE_ALIAS, ksAlias);
+                }
+                
+                if(tsAlias != null) {
+                    settingsBuilder.put(SSLConfigConstants.SEARCHGUARD_SSL_TRANSPORT_TRUSTSTORE_ALIAS, tsAlias);
+                }
+        
+                Settings settings = settingsBuilder.build();  
+              
 
         try (TransportClient tc = TransportClient.builder().settings(settings).addPlugin(SearchGuardSSLPlugin.class)
+                .addPlugin(SearchGuardPlugin.class) //needed for config update action only
                 .build()
                 .addTransportAddress(new InetSocketTransportAddress(new InetSocketAddress(hostname, port)))) {
 
+            if(updateSettings != null) { 
+                Settings indexSettings = Settings.builder().put("index.number_of_replicas", updateSettings).build();                
+                tc.execute(ConfigUpdateAction.INSTANCE, new ConfigUpdateRequest(new String[]{"config","roles","rolesmapping","internalusers","actiongroups"})).actionGet();
+                final UpdateSettingsResponse response = tc.admin().indices().updateSettings((new UpdateSettingsRequest("searchguard").settings(indexSettings))).actionGet();
+                System.out.println("Reload config on all nodes");
+                System.out.println("Update number of replicas to "+(updateSettings) +" with result: "+response.isAcknowledged());
+                System.exit(response.isAcknowledged()?0:-1);
+            }
+            
+            
+            
             final ClusterHealthResponse chr = tc.admin().cluster().health(new ClusterHealthRequest().waitForYellowStatus()).actionGet();
 
             final boolean timedOut = chr.isTimedOut();
@@ -193,7 +291,20 @@ public class SearchGuardAdmin {
                 System.out.println("Index does already exists");
             }
             
-            System.out.println("populate config ...");
+            if(retrieve) {
+                String date = new SimpleDateFormat("yyyy-MMM-dd_HH-mm-ss", Locale.ENGLISH).format(new Date());
+                
+                boolean success = retrieveFile(tc, cd+"sg_config_"+date+".yml", "config");
+                success = success & retrieveFile(tc, cd+"sg_roles_"+date+".yml", "roles");
+                success = success & retrieveFile(tc, cd+"sg_roles_mapping_"+date+".yml", "rolesmapping");
+                success = success & retrieveFile(tc, cd+"sg_internal_users_"+date+".yml", "internalusers");
+                success = success & retrieveFile(tc, cd+"sg_action_groups_"+date+".yml", "actiongroups");
+                System.exit(success?0:-1);
+            }
+            
+            boolean isCdAbs = new File(cd).isAbsolute();
+             
+            System.out.println("Populate config from "+(isCdAbs?cd:new File(".", cd).getCanonicalPath()));
             
             if(file != null) {
                 if(type == null) {
@@ -210,18 +321,18 @@ public class SearchGuardAdmin {
                 System.exit(success?0:-1);
             }
 
-            boolean success = uploadFile(tc, cd+"/sg_config.yml", "config");
-            success = success & uploadFile(tc, cd+"/sg_roles.yml", "roles");
-            success = success & uploadFile(tc, cd+"/sg_roles_mapping.yml", "rolesmapping");
-            success = success & uploadFile(tc, cd+"/sg_internal_users.yml", "internalusers");
-            success = success & uploadFile(tc, cd+"/sg_action_groups.yml", "actiongroups");
+            boolean success = uploadFile(tc, cd+"sg_config.yml", "config");
+            success = success & uploadFile(tc, cd+"sg_roles.yml", "roles");
+            success = success & uploadFile(tc, cd+"sg_roles_mapping.yml", "rolesmapping");
+            success = success & uploadFile(tc, cd+"sg_internal_users.yml", "internalusers");
+            success = success & uploadFile(tc, cd+"sg_action_groups.yml", "actiongroups");
             
             System.out.println("Wait a short time ...");
             Thread.sleep(5000);
             System.out.println("Done with "+(success?"success":"failures"));
             System.exit(success?0:-1);
         }
-        // TODO audit changes to .searchguard index
+        // TODO audit changes to searchguard index
     }
     
     private static boolean uploadFile(Client tc, String filepath, String type) {
@@ -245,6 +356,32 @@ public class SearchGuardAdmin {
         
         return false;
     }
+    
+    private static boolean retrieveFile(Client tc, String filepath, String type) {
+        System.out.println("Will retrieve '"+type+"' into "+filepath);
+        try (Writer writer = new FileWriter(filepath)) {
+
+            final GetResponse response = tc.get(new GetRequest("searchguard").type(type).id("0").refresh(true).realtime(false)).actionGet();
+
+            if (response.isExists()) {
+                if(response.isSourceEmpty()) {
+                    System.out.println("   FAIL Configuration for '"+type+"' failed because of empty source");
+                    return false;
+                }
+                
+                String yaml = convertToYaml(response.getSourceAsBytesRef(), true);
+                writer.write(yaml);
+                System.out.println("   SUCC Configuration for '"+type+"' stored in "+filepath);
+                return true;
+            } else {
+                System.out.println("   FAIL Get configuration for '"+type+"' because it does not exist");
+            }
+        } catch (IOException e) {
+            System.out.println("   FAIL Get configuration for '"+type+"' failed because of "+e.toString());
+        }
+        
+        return false;
+    }
 
     private static BytesReference readXContent(final Reader reader, final XContentType xContentType) throws IOException {
         XContentParser parser = null;
@@ -258,6 +395,18 @@ public class SearchGuardAdmin {
             if (parser != null) {
                 parser.close();
             }
+        }
+    }
+    
+    private static String convertToYaml(BytesReference bytes, boolean prettyPrint) throws IOException {
+        try (XContentParser parser = XContentFactory.xContent(XContentFactory.xContentType(bytes)).createParser(bytes.streamInput())) {
+            parser.nextToken();
+            XContentBuilder builder = XContentFactory.yamlBuilder();
+            if (prettyPrint) {
+                builder.prettyPrint();
+            }
+            builder.copyCurrentStructure(parser);
+            return builder.string();
         }
     }
 }

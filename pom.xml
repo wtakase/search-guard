@@ -19,7 +19,7 @@
   <groupId>com.floragunn</groupId>
   <artifactId>search-guard-2</artifactId>
   <packaging>jar</packaging>
-  <version>2.3.3.0-beta4-SNAPSHOT</version>
+  <version>2.3.3.3-SNAPSHOT</version>
   <name>Search Guard</name>
   <description>Provide access control related features for Elasticsearch 2</description>
   <url>https://github.com/floragunncom/search-guard</url>
@@ -34,6 +34,7 @@
   </licenses>
 
   <properties>
+    <sgssl.version>2.3.3.13</sgssl.version>
     <elasticsearch.version>2.3.3</elasticsearch.version>
     <elasticsearch.plugin.isolated>false</elasticsearch.plugin.isolated>
     <dependency.locations.enabled>false</dependency.locations.enabled>
@@ -84,9 +85,11 @@
     <dependency>
       <groupId>com.floragunn</groupId>
       <artifactId>search-guard-ssl</artifactId>
-      <version>2.3.3.11-SNAPSHOT</version>
+      <version>${sgssl.version}</version>
       <scope>provided</scope>
     </dependency>
+    
+    <!-- Only test scoped dependencies hereafter -->
 
     <!--  <dependency>
        <groupId>com.floragunn</groupId>
@@ -110,14 +113,15 @@
       <scope>test</scope>
     </dependency>
     
-    -->
-
+    
     <dependency>
       <groupId>org.apache.directory.server</groupId>
       <artifactId>apacheds-all</artifactId>
       <version>${apache.ds.version}</version>
       <scope>test</scope>
     </dependency>
+    
+    -->
 
     <dependency>
       <groupId>commons-io</groupId>
@@ -126,7 +130,7 @@
       <scope>test</scope>
     </dependency>
 
-    <!-- Only test scoped dependencies hereafter -->
+    
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>fluent-hc</artifactId>
@@ -137,7 +141,7 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-tcnative-boringssl-static</artifactId>
-      <version>1.1.33.Fork15</version> <!-- 1.1.33.Fork14 and newer need netty >= 4.1.x -->
+      <version>1.1.33.Fork17</version>
       <classifier>${os.detected.classifier}</classifier>
       <scope>test</scope>
     </dependency>
@@ -229,6 +233,23 @@
             <phase>none</phase>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>cobertura-maven-plugin</artifactId>
+          <version>2.7</version>
+          <configuration>
+              <formats>
+                  <format>xml</format>
+              </formats>
+              <aggregate>true</aggregate>
+              <maxmem>256m</maxmem>
+          </configuration>
+      </plugin>
+      <plugin>
+          <groupId>org.eluder.coveralls</groupId>
+          <artifactId>coveralls-maven-plugin</artifactId>
+          <version>3.1.0</version>
       </plugin>
       <!-- skip validation end -->
     </plugins>
