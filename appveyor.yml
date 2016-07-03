@@ -8,8 +8,6 @@ environment:
 branches:
   only:
     - ci-only_windows
-  except:
-    - gh-pages
 os: Windows Server 2012
 install:
   - ps: |

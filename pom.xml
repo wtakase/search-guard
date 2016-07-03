@@ -184,7 +184,7 @@
         <configuration>
           <encoding>${project.build.sourceEncoding}</encoding>
           <locale>en</locale>
-          <additionalparam>-Xdoclint:none</additionalparam>
+          <additionalparam>${javadoc.doclint}</additionalparam>
         </configuration>
         <executions>
           <execution>
@@ -193,7 +193,7 @@
               <goal>jar</goal>
             </goals>
             <configuration>
-                <additionalparam>-Xdoclint:none</additionalparam>
+                <additionalparam>${javadoc.doclint}</additionalparam>
             </configuration>
           </execution>
         </executions>
@@ -286,6 +286,15 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+    <profile>
+      <id>minjava8</id>
+      <activation>
+        <jdk>[1.8,)</jdk>
+      </activation>
+      <properties>
+        <javadoc.doclint>-Xdoclint:none</javadoc.doclint>
+      </properties>
     </profile>
   </profiles>
 </project>
