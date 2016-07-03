@@ -54,10 +54,19 @@ public class HTTPBasicAuthenticator implements HTTPAuthenticator {
                 log.warn("No 'Basic Authorization' header, send 401 and 'WWW-Authenticate Basic'");
                 return null;
             } else {
+                
+                if(log.isDebugEnabled()) {
+                    log.debug("authorizationHeader: {}", authorizationHeader);
+                }
 
                 final String decodedBasicHeader = new String(DatatypeConverter.parseBase64Binary(authorizationHeader.split(" ")[1]),
                         StandardCharsets.UTF_8);
 
+                if(log.isDebugEnabled()) {
+                    log.debug("decodedBasicHeader: {}", decodedBasicHeader);
+                    log.debug("decodedBasicHeader bytes: {}", decodedBasicHeader.getBytes(StandardCharsets.UTF_8));
+                }
+                
                 //username:password
                 //special case
                 //username must not contain a :, but password is allowed to do so

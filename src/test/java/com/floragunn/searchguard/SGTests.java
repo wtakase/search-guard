@@ -20,6 +20,7 @@ package com.floragunn.searchguard;
 import io.netty.handler.ssl.OpenSsl;
 
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 import org.apache.http.HttpStatus;
@@ -1132,6 +1133,13 @@ public class SGTests extends AbstractUnitTest {
         Thread.sleep(2000);        
         Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("bug.99", "nagilum"))).getStatusCode());
         Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("a", "b"))).getStatusCode());
+        
+        
+        if(log.isDebugEnabled()) {
+            log.debug("test authorizationHeader: {}", Base64Helper.encodeBasicHeader("\"'+-,;_?*@<>!$%&/()=#", "nagilum"));
+            log.debug("username bytes: {}","\"'+-,;_?*@<>!$%&/()=#".getBytes(StandardCharsets.UTF_8));
+        }
+        
         Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("\"'+-,;_?*@<>!$%&/()=#", "nagilum"))).getStatusCode());
         Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("§ÄÖÜäöüß", "nagilum"))).getStatusCode());
 
