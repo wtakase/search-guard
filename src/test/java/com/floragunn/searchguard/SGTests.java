@@ -1136,11 +1136,17 @@ public class SGTests extends AbstractUnitTest {
         
         
         if(log.isDebugEnabled()) {
-            log.debug("test authorizationHeader: {}", Base64Helper.encodeBasicHeader("\"'+-,;_?*@<>!$%&/()=#", "nagilum"));
+            log.debug("1) test authorizationHeader: {}", Base64Helper.encodeBasicHeader("\"'+-,;_?*@<>!$%&/()=#", "nagilum"));
             log.debug("username bytes: {}","\"'+-,;_?*@<>!$%&/()=#".getBytes(StandardCharsets.UTF_8));
         }
         
         Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("\"'+-,;_?*@<>!$%&/()=#", "nagilum"))).getStatusCode());
+        
+        if(log.isDebugEnabled()) {
+            log.debug("2) test authorizationHeader: {}", Base64Helper.encodeBasicHeader("§ÄÖÜäöüß", "nagilum"));
+            log.debug("username bytes: {}","§ÄÖÜäöüß".getBytes(StandardCharsets.UTF_8));
+        }
+        
         Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("§ÄÖÜäöüß", "nagilum"))).getStatusCode());
 
     }
