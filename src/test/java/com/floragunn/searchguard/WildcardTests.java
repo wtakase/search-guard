@@ -17,6 +17,11 @@
 
 package com.floragunn.searchguard;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+
+import javax.xml.bind.DatatypeConverter;
+
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -38,5 +43,9 @@ public class WildcardTests {
         Assert.assertTrue(WildcardMatcher.match("/(\\d{3}-?\\d{2}-?\\d{4})/", "123-45-6789"));
         Assert.assertTrue(!WildcardMatcher.match("(\\d{3}-?\\d{2}-?\\d{4})", "123-45-6789"));
         Assert.assertTrue(WildcardMatcher.match("/\\S*/", "abc"));
+        
+        
+        System.out.println(Arrays.toString(DatatypeConverter.parseBase64Binary("wqfDhMOWw5zDpMO2w7zDnzpuYWdpbHVt")));
+        System.out.println(new String((DatatypeConverter.parseBase64Binary("wqfDhMOWw5zDpMO2w7zDnzpuYWdpbHVt")), StandardCharsets.UTF_8));
     }
 }

@@ -18,6 +18,7 @@
 package com.floragunn.searchguard.http;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 import javax.xml.bind.DatatypeConverter;
 
@@ -58,6 +59,7 @@ public class HTTPBasicAuthenticator implements HTTPAuthenticator {
                 if(log.isDebugEnabled()) {
                     log.debug("authorizationHeader: {}", authorizationHeader);
                     log.debug("authorizationHeader s: {}", authorizationHeader.split(" ")[1]);
+                    log.debug("dc bytes: {}", Arrays.toString(DatatypeConverter.parseBase64Binary(authorizationHeader.split(" ")[1])));
                 }
 
                 final String decodedBasicHeader = new String(DatatypeConverter.parseBase64Binary(authorizationHeader.split(" ")[1]),
