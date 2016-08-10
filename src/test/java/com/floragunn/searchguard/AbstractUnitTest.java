@@ -31,9 +31,11 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 import javax.net.ssl.SSLContext;
+import javax.xml.bind.DatatypeConverter;
 
 import junit.framework.Assert;
 
@@ -206,17 +208,18 @@ public abstract class AbstractUnitTest {
     @After
     public void tearDown() throws Exception {
 
-            if (esNode3 != null) {
-                esNode3.close();
-            }
+        Thread.sleep(500);
+        if (esNode3 != null) {
+            esNode3.close();
+        }
 
-            if (esNode2 != null) {
-                esNode2.close();
-            }
+        if (esNode2 != null) {
+            esNode2.close();
+        }
 
-            if (esNode1 != null) {
-                esNode1.close();
-            }
+        if (esNode1 != null) {
+            esNode1.close();
+        }
     }
 
     protected void waitForGreenClusterState(final Client client) throws IOException {
@@ -389,7 +392,9 @@ public abstract class AbstractUnitTest {
                 }
             }
             
-            return new HttpResponse(httpClient.execute(uriRequest));
+            HttpResponse res = new HttpResponse(httpClient.execute(uriRequest));
+            log.trace(res.getBody());
+            return res;
         } finally {
 
             if (httpClient != null) {
@@ -470,5 +475,9 @@ public abstract class AbstractUnitTest {
                 parser.close();
             }
         }
+    }
+    
+    public static String encodeBasicHeader(final String username, final String password) {
+        return new String(DatatypeConverter.printBase64Binary((username + ":" + Objects.requireNonNull(password)).getBytes(StandardCharsets.UTF_8)));
     }
 }

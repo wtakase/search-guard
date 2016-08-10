@@ -50,9 +50,11 @@ import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.common.xcontent.XContentParser;
@@ -180,7 +182,7 @@ public class SearchGuardAdmin {
             
         }
         catch( ParseException exp ) {
-            System.err.println("Parsing failed.  Reason: " + exp.getMessage());
+            System.err.println("ERR: Parsing failed.  Reason: " + exp.getMessage());
             formatter.printHelp("sgadmin.sh", options, true);
             return;
         }
@@ -190,7 +192,7 @@ public class SearchGuardAdmin {
                              + "         sgadmin connect through the transport port which is normally 9300.");
         }
         
-        System.out.println("Connect to "+hostname+":"+port);
+        System.out.print("Will connect to "+hostname+":"+port);
         Socket socket = new Socket();
         
         try {
@@ -198,7 +200,8 @@ public class SearchGuardAdmin {
             socket.connect(new InetSocketAddress(hostname, port));
             
           } catch (java.net.ConnectException ex) {
-            System.out.println("Seems there is no elasticsearch running on "+hostname+":"+port+" - Will exit");
+            System.out.println();
+            System.out.println("ERR: Seems there is no elasticsearch running on "+hostname+":"+port+" - Will exit");
             System.exit(-1);
           } finally {
               try {
@@ -208,6 +211,8 @@ public class SearchGuardAdmin {
             }
           }
 
+        System.out.println(" ... done");
+        
         final Settings.Builder settingsBuilder = Settings
                 .builder()
                 .put("path.home", ".")
@@ -247,34 +252,38 @@ public class SearchGuardAdmin {
 
             if(updateSettings != null) { 
                 Settings indexSettings = Settings.builder().put("index.number_of_replicas", updateSettings).build();                
-                tc.execute(ConfigUpdateAction.INSTANCE, new ConfigUpdateRequest(new String[]{"config","roles","rolesmapping","internalusers","actiongroups"})).actionGet();
+                tc.execute(ConfigUpdateAction.INSTANCE, new ConfigUpdateRequest(new String[]{"config","roles","rolesmapping","internalusers","actiongroups"})).actionGet();                
                 final UpdateSettingsResponse response = tc.admin().indices().updateSettings((new UpdateSettingsRequest("searchguard").settings(indexSettings))).actionGet();
                 System.out.println("Reload config on all nodes");
                 System.out.println("Update number of replicas to "+(updateSettings) +" with result: "+response.isAcknowledged());
                 System.exit(response.isAcknowledged()?0:-1);
+            }      
+            
+            System.out.println("Contacting elasticsearch cluster '"+clustername+"' and wait for YELLOW clusterstate ...");
+            
+            ClusterHealthResponse chr = null;
+            
+            while(chr == null) {
+                try {
+                    chr = tc.admin().cluster().health(new ClusterHealthRequest().timeout(TimeValue.timeValueMinutes(5)).waitForYellowStatus()).actionGet();
+                } catch (Exception e) {
+                    System.out.println("Cannot retrieve cluster state due to "+e.getMessage()+". This is not an error, will keep on trying ...");
+                    Thread.sleep(3000);
+                    continue;
+                }
             }
-            
-            
-            
-            final ClusterHealthResponse chr = tc.admin().cluster().health(new ClusterHealthRequest().waitForYellowStatus()).actionGet();
 
             final boolean timedOut = chr.isTimedOut();
-
             
             if (timedOut) {
-                System.out.println("Cluster state timeout");
+                System.out.println("ERR: Timed out while waiting for a green or yellow cluster state.");
                 System.exit(-1);
             }
-
-            /*System.out.println(chr.getStatus());
-            System.out.println(chr.getActivePrimaryShards());
-            System.out.println(chr.getActiveShards());
-            System.out.println(chr.getInitializingShards());
-            System.out.println(chr.getNumberOfDataNodes());
-            System.out.println(chr.getNumberOfPendingTasks());
-            System.out.println(chr.getRelocatingShards());
-            System.out.println(chr.getUnassignedShards());
-            System.out.println(chr.getIndices());*/
+            
+            System.out.println("Clustername: "+chr.getClusterName());
+            System.out.println("Clusterstate: "+chr.getStatus());
+            System.out.println("Number of nodes: "+chr.getNumberOfNodes());
+            System.out.println("Number of data nodes: "+chr.getNumberOfDataNodes());
             
             final boolean indexExists = tc.admin().indices().exists(new IndicesExistsRequest("searchguard")).actionGet().isExists();
 
@@ -295,7 +304,26 @@ public class SearchGuardAdmin {
                 }
 
             } else {
-                System.out.println("Index does already exists");
+                System.out.println("Search Guard index already exists, so we do not need to create one.");
+                
+                try {
+                    ClusterHealthResponse chrsg = tc.admin().cluster().health(new ClusterHealthRequest("searchguard")).actionGet();
+                             
+                    if (chrsg.isTimedOut()) {
+                        System.out.println("ERR: Timed out while waiting for searchguard index state.");
+                    }
+                    
+                    if (chrsg.getStatus() == ClusterHealthStatus.RED) {
+                        System.out.println("ERR: searchguard index state is RED.");
+                    }
+                    
+                    if (chrsg.getStatus() == ClusterHealthStatus.YELLOW) {
+                        System.out.println("INFO: searchguard index state is YELLOW, it seems you miss some replicas");
+                    }
+                    
+                } catch (Exception e) {
+                    System.out.println("Cannot retrieve searchguard index state state due to "+e.getMessage()+". This is not an error, will keep on trying ...");
+                }
             }
             
             if(retrieve) {
@@ -315,12 +343,12 @@ public class SearchGuardAdmin {
             
             if(file != null) {
                 if(type == null) {
-                    System.out.println("type missing");
+                    System.out.println("ERR: type missing");
                     System.exit(-1);
                 }
                 
                 if(!Arrays.asList(new String[]{"config", "roles", "rolesmapping", "internalusers","actiongroups" }).contains(type)) {
-                    System.out.println("Invalid type '"+type+"'");
+                    System.out.println("ERR: Invalid type '"+type+"'");
                     System.exit(-1);
                 }
                 
@@ -336,12 +364,34 @@ public class SearchGuardAdmin {
             
             ConfigUpdateResponse cur = tc.execute(ConfigUpdateAction.INSTANCE, new ConfigUpdateRequest(new String[]{"config","roles","rolesmapping","internalusers","actiongroups"})).actionGet();
             
-            success = success & cur.getNodes().length == chr.getNumberOfNodes();
+            success = success & checkConfigUpdateResponse(cur, chr.getNumberOfNodes(), 5);
             
             System.out.println("Done with "+(success?"success":"failures"));
             System.exit(success?0:-1);
         }
         // TODO audit changes to searchguard index
+    }
+    
+    
+    private static boolean checkConfigUpdateResponse(ConfigUpdateResponse response, int expectedNodeCount, int expectedConfigCount) {
+        
+        boolean success = response.getNodes().length == expectedNodeCount;
+        if(!success) {
+            System.out.println("FAIL: Expected "+expectedNodeCount+" nodes to return response, but got only "+response.getNodes().length);
+        }
+        
+        for(String nodeId: response.getNodesMap().keySet()) {
+            ConfigUpdateResponse.Node node = (ConfigUpdateResponse.Node) response.getNodesMap().get(nodeId);
+            boolean successNode = (node.getUpdatedConfigTypes() != null && node.getUpdatedConfigTypes().length == expectedConfigCount);
+            
+            if(!successNode) {
+                System.out.println("FAIL: Expected "+expectedConfigCount+" config types for node "+nodeId+" but got only "+Arrays.toString(node.getUpdatedConfigTypes()));
+            }
+            
+            success = success & successNode;
+        }
+        
+        return success;
     }
     
     private static boolean uploadFile(Client tc, String filepath, String type) {
@@ -354,13 +404,13 @@ public class SearchGuardAdmin {
                             .actionGet().getId();
 
             if ("0".equals(id)) {
-                System.out.println("   SUCC Configuration for '"+type+"' created or updated");
+                System.out.println("   SUCC: Configuration for '"+type+"' created or updated");
                 return true;
             } else {
-                System.out.println("   FAIL Configuration for '"+type+"' failed for unknown reasons. Pls. consult logfile of elasticsearch");
+                System.out.println("   FAIL: Configuration for '"+type+"' failed for unknown reasons. Pls. consult logfile of elasticsearch");
             }
         } catch (IOException e) {
-            System.out.println("   FAIL Configuration for '"+type+"' failed because of "+e.toString());
+            System.out.println("   FAIL: Configuration for '"+type+"' failed because of "+e.toString());
         }
         
         return false;
@@ -374,19 +424,19 @@ public class SearchGuardAdmin {
 
             if (response.isExists()) {
                 if(response.isSourceEmpty()) {
-                    System.out.println("   FAIL Configuration for '"+type+"' failed because of empty source");
+                    System.out.println("   FAIL: Configuration for '"+type+"' failed because of empty source");
                     return false;
                 }
                 
                 String yaml = convertToYaml(response.getSourceAsBytesRef(), true);
                 writer.write(yaml);
-                System.out.println("   SUCC Configuration for '"+type+"' stored in "+filepath);
+                System.out.println("   SUCC: Configuration for '"+type+"' stored in "+filepath);
                 return true;
             } else {
-                System.out.println("   FAIL Get configuration for '"+type+"' because it does not exist");
+                System.out.println("   FAIL: Get configuration for '"+type+"' because it does not exist");
             }
         } catch (IOException e) {
-            System.out.println("   FAIL Get configuration for '"+type+"' failed because of "+e.toString());
+            System.out.println("   FAIL: Get configuration for '"+type+"' failed because of "+e.toString());
         }
         
         return false;

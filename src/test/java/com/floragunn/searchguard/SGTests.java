@@ -225,10 +225,10 @@ public class SGTests extends AbstractUnitTest {
         this.enableHTTPClientSSL = true;
         this.trustHTTPServerCertificate = true;
         this.sendHTTPClientCertificate = true;
-        Assert.assertEquals(HttpStatus.SC_SERVICE_UNAVAILABLE, executePutRequest("searchguard/config/0", "{}",new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("___", ""))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_SERVICE_UNAVAILABLE, executePutRequest("searchguard/config/0", "{}",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("___", ""))).getStatusCode());
         
         this.keystore = "kirk-keystore.jks";
-        Assert.assertEquals(HttpStatus.SC_SERVICE_UNAVAILABLE, executePutRequest("searchguard/config/0", "{}",new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("___", ""))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_SERVICE_UNAVAILABLE, executePutRequest("searchguard/config/0", "{}",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("___", ""))).getStatusCode());
 
     }
     
@@ -416,50 +416,55 @@ public class SGTests extends AbstractUnitTest {
         }
         
         Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("").getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_NOT_FOUND, executeGetRequest("searchguard/config/0", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_NOT_FOUND, executeGetRequest("xxxxyyyy/config/0", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("abc", "abc:abc"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("userwithnopassword", ""))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("userwithblankpassword", ""))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "wrongpasswd"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_NOT_FOUND, executeGetRequest("searchguard/config/0", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_NOT_FOUND, executeGetRequest("xxxxyyyy/config/0", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("abc", "abc:abc"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("userwithnopassword", ""))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("userwithblankpassword", ""))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "wrongpasswd"))).getStatusCode());
         Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+"wrongheader")).getStatusCode());
         Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic ")).getStatusCode());
         Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic")).getStatusCode());
         Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "")).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("picard", "picard"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("picard", "picard"))).getStatusCode());
 
         for(int i=0; i< 10; i++) {
-            Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "wrongpasswd"))).getStatusCode());
+            Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "wrongpasswd"))).getStatusCode());
         }
 
-        Assert.assertEquals(HttpStatus.SC_OK, executePutRequest("/theindex","{}",new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("theindexadmin", "theindexadmin"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeGetRequest("starfleet/_search", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeGetRequest("_search", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("starfleet/ships/_search?pretty", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeDeleteRequest("searchguard/", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePostRequest("/searchguard/_close", null,new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePostRequest("/searchguard/_upgrade", null,new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePutRequest("/searchguard/_mapping/config","{}",new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executePutRequest("/theindex","{}",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("theindexadmin", "theindexadmin"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_CREATED, executePutRequest("/theindex/type/1?refresh=true","{\"a\":0}",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("theindexadmin", "theindexadmin"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("/theindex/_analyze?text=this+is+a+test",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("theindexadmin", "theindexadmin"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeGetRequest("_analyze?text=this+is+a+test",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("theindexadmin", "theindexadmin"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeDeleteRequest("/theindex",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("theindexadmin", "theindexadmin"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeDeleteRequest("/klingonempire",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("theindexadmin", "theindexadmin"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeGetRequest("starfleet/_search", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeGetRequest("_search", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("starfleet/ships/_search?pretty", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeDeleteRequest("searchguard/", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePostRequest("/searchguard/_close", null,new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePostRequest("/searchguard/_upgrade", null,new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePutRequest("/searchguard/_mapping/config","{}",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
 
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeGetRequest("searchguard/", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePutRequest("searchguard/config/2", "{}",new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeGetRequest("searchguard/config/0",new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeDeleteRequest("searchguard/config/0",new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePutRequest("searchguard/config/0","{}",new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeGetRequest("searchguard/", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePutRequest("searchguard/config/2", "{}",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeGetRequest("searchguard/config/0",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeDeleteRequest("searchguard/config/0",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePutRequest("searchguard/config/0","{}",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
         
-        HttpResponse resc = executeGetRequest("_cat/indices/public",new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("bug108", "nagilum")));
+        HttpResponse resc = executeGetRequest("_cat/indices/public",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("bug108", "nagilum")));
         Assert.assertTrue(resc.getBody().contains("green"));
         Assert.assertEquals(HttpStatus.SC_OK, resc.getStatusCode());
         
         
 //all
         
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePutRequest("_mapping/config","{\"i\" : [\"4\"]}",new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePostRequest("searchguard/_mget","{\"ids\" : [\"0\"]}",new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePutRequest("_mapping/config","{\"i\" : [\"4\"]}",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executePostRequest("searchguard/_mget","{\"ids\" : [\"0\"]}",new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
         
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("starfleet/ships/_search?pretty", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("starfleet/ships/_search?pretty", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
 
         try (TransportClient tc = TransportClient.builder().settings(tcSettings).addPlugin(SearchGuardSSLPlugin.class).addPlugin(SearchGuardPlugin.class).build()) {
             
@@ -471,7 +476,7 @@ public class SGTests extends AbstractUnitTest {
             Assert.assertEquals(3, cur.getNodes().length);
         }
         
-        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeGetRequest("starfleet/ships/_search?pretty", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_FORBIDDEN, executeGetRequest("starfleet/ships/_search?pretty", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
 
         try (TransportClient tc = TransportClient.builder().settings(tcSettings).addPlugin(SearchGuardSSLPlugin.class).addPlugin(SearchGuardPlugin.class).build()) {
             
@@ -483,13 +488,13 @@ public class SGTests extends AbstractUnitTest {
             Assert.assertEquals(3, cur.getNodes().length);
         }
         
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("starfleet/ships/_search?pretty", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "worf"))).getStatusCode());
-        HttpResponse res = executeGetRequest("_search?pretty", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum")));
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("starfleet/ships/_search?pretty", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "worf"))).getStatusCode());
+        HttpResponse res = executeGetRequest("_search?pretty", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum")));
         Assert.assertEquals(HttpStatus.SC_OK, res.getStatusCode());
         Assert.assertTrue(res.getBody().contains("\"total\" : 15"));
         Assert.assertTrue(!res.getBody().contains("searchguard"));
         
-        res = executeGetRequest("_nodes/stats?pretty", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum")));
+        res = executeGetRequest("_nodes/stats?pretty", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum")));
         Assert.assertEquals(HttpStatus.SC_OK, res.getStatusCode());
         Assert.assertTrue(res.getBody().contains("total_in_bytes"));
         Assert.assertTrue(res.getBody().contains("max_file_descriptors"));
@@ -557,7 +562,7 @@ public class SGTests extends AbstractUnitTest {
         }
                
         
-        BasicHeader spock = new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("spock", "spock"));
+        BasicHeader spock = new BasicHeader("Authorization", "Basic "+encodeBasicHeader("spock", "spock"));
           
         for (Iterator iterator = httpAdresses.iterator(); iterator.hasNext();) {
             InetSocketTransportAddress inetSocketTransportAddress = (InetSocketTransportAddress) iterator.next();
@@ -669,19 +674,19 @@ public class SGTests extends AbstractUnitTest {
         }
               
         HttpResponse res;
-        Assert.assertEquals("Unable to create index 'nag'", HttpStatus.SC_OK, executePutRequest("nag1", null, new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
-        Assert.assertEquals("Unable to create index 'starfleet_library'", HttpStatus.SC_OK, executePutRequest("starfleet_library", null, new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
+        Assert.assertEquals("Unable to create index 'nag'", HttpStatus.SC_OK, executePutRequest("nag1", null, new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
+        Assert.assertEquals("Unable to create index 'starfleet_library'", HttpStatus.SC_OK, executePutRequest("starfleet_library", null, new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
         
         Thread.sleep(2000);
         waitForGreenClusterState(esNode1.client());
         
-        Assert.assertEquals("Unable to close index 'starfleet_library'", HttpStatus.SC_OK, executePostRequest("starfleet_library/_close", null, new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
-        Assert.assertEquals("Unable to open index 'starfleet_library'", HttpStatus.SC_OK, (res = executePostRequest("starfleet_library/_open", null, new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum")))).getStatusCode());
+        Assert.assertEquals("Unable to close index 'starfleet_library'", HttpStatus.SC_OK, executePostRequest("starfleet_library/_close", null, new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
+        Assert.assertEquals("Unable to open index 'starfleet_library'", HttpStatus.SC_OK, (res = executePostRequest("starfleet_library/_open", null, new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum")))).getStatusCode());
         Assert.assertEquals("open index 'starfleet_library' not acknowledged", "{\"acknowledged\":true}", res.getBody());
         
         waitForGreenClusterState(esNode1.client());
         
-        //Assert.assertEquals(HttpStatus.SC_OK, executePutRequest("public", null, new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("spock", "spock"))).getStatusCode());
+        //Assert.assertEquals(HttpStatus.SC_OK, executePutRequest("public", null, new BasicHeader("Authorization", "Basic "+encodeBasicHeader("spock", "spock"))).getStatusCode());
         
         
     }
@@ -759,9 +764,14 @@ public class SGTests extends AbstractUnitTest {
         
        
         Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("").getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("x-proxy-user", "scotty")).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("X-Proxy-User", "scotty")).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("x-proxy-user", "scotty"),new BasicHeader("x-proxy-roles", "starfleet,engineer")).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("x-forwarded-for", "localhost,192.168.0.1,10.0.0.2"),new BasicHeader("x-proxy-user", "scotty"), new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum-wrong", "nagilum-wrong"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("x-forwarded-for", "localhost,192.168.0.1,10.0.0.2"),new BasicHeader("x-proxy-user-wrong", "scotty"), new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_INTERNAL_SERVER_ERROR, executeGetRequest("", new BasicHeader("x-forwarded-for", "a"),new BasicHeader("x-proxy-user", "scotty"), new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum-wrong", "nagilum-wrong"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_INTERNAL_SERVER_ERROR, executeGetRequest("", new BasicHeader("x-forwarded-for", "a,b,c"),new BasicHeader("x-proxy-user", "scotty")).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("x-forwarded-for", "localhost,192.168.0.1,10.0.0.2"),new BasicHeader("x-proxy-user", "scotty")).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("x-forwarded-for", "localhost,192.168.0.1,10.0.0.2"),new BasicHeader("X-Proxy-User", "scotty")).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("x-forwarded-for", "localhost,192.168.0.1,10.0.0.2"),new BasicHeader("x-proxy-user", "scotty"),new BasicHeader("x-proxy-roles", "starfleet,engineer")).getStatusCode());
         
     }
     
@@ -845,8 +855,8 @@ public class SGTests extends AbstractUnitTest {
             //init is somewhat async
             Thread.sleep(2000);        
             Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("").getStatusCode());
-            Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("spock", "spocksecret"))).getStatusCode());
-            HttpResponse res =  executeGetRequest("_searchguard/authinfo?pretty", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("spock", "spocksecret")));
+            Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("spock", "spocksecret"))).getStatusCode());
+            HttpResponse res =  executeGetRequest("_searchguard/authinfo?pretty", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("spock", "spocksecret")));
             Assert.assertTrue(res.getBody().contains("nested1"));
             Assert.assertTrue(res.getBody().contains("nested2"));
             Assert.assertTrue(res.getBody().toLowerCase().contains("spock"));
@@ -1142,23 +1152,23 @@ public class SGTests extends AbstractUnitTest {
             Assert.assertEquals(3, cur.getNodes().length);
         }
        
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("bug.99", "nagilum"))).getStatusCode());
-        Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("a", "b"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("bug.99", "nagilum"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("a", "b"))).getStatusCode());
         
         
         if(log.isDebugEnabled()) {
-            log.debug("1) test authorizationHeader: {}", Base64Helper.encodeBasicHeader("\"'+-,;_?*@<>!$%&/()=#", "nagilum"));
+            log.debug("1) test authorizationHeader: {}", encodeBasicHeader("\"'+-,;_?*@<>!$%&/()=#", "nagilum"));
             log.debug("username bytes: {}","\"'+-,;_?*@<>!$%&/()=#".getBytes(StandardCharsets.UTF_8));
         }
         
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("\"'+-,;_?*@<>!$%&/()=#", "nagilum"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("\"'+-,;_?*@<>!$%&/()=#", "nagilum"))).getStatusCode());
         
         if(log.isDebugEnabled()) {
-            log.debug("2) test authorizationHeader: {}", Base64Helper.encodeBasicHeader("§ÄÖÜäöüß", "nagilum"));
+            log.debug("2) test authorizationHeader: {}", encodeBasicHeader("§ÄÖÜäöüß", "nagilum"));
             log.debug("username bytes: {}","§ÄÖÜäöüß".getBytes(StandardCharsets.UTF_8));
         }
         
-        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("§ÄÖÜäöüß", "nagilum"))).getStatusCode());
+        Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("§ÄÖÜäöüß", "nagilum"))).getStatusCode());
 
     }
 
@@ -1248,7 +1258,7 @@ public class SGTests extends AbstractUnitTest {
        
             Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("").getStatusCode());
             HttpResponse res;
-            Assert.assertEquals(HttpStatus.SC_OK, (res = executeGetRequest("/_search?pretty", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("sarek", "sarek")))).getStatusCode());
+            Assert.assertEquals(HttpStatus.SC_OK, (res = executeGetRequest("/_search?pretty", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("sarek", "sarek")))).getStatusCode());
             Assert.assertTrue(res.getBody().contains("\"total\" : 1,"));
             Assert.assertTrue(res.getBody().contains("\"_source\" : { }"));
             
@@ -1338,15 +1348,15 @@ public class SGTests extends AbstractUnitTest {
             
        
             Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("").getStatusCode());
-            Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "wrong"))).getStatusCode());
-            Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
+            Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "wrong"))).getStatusCode());
+            Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
    
             HttpResponse resc = executeGetRequest("_searchguard/authinfo");
             System.out.println(resc.getBody());
             Assert.assertTrue(resc.getBody().contains("sg_anonymous"));
             Assert.assertEquals(HttpStatus.SC_OK, resc.getStatusCode());
             
-            resc = executeGetRequest("_searchguard/authinfo", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum")));
+            resc = executeGetRequest("_searchguard/authinfo", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum")));
             System.out.println(resc.getBody());
             Assert.assertTrue(resc.getBody().contains("nagilum"));
             Assert.assertFalse(resc.getBody().contains("sg_anonymous"));
@@ -1368,8 +1378,8 @@ public class SGTests extends AbstractUnitTest {
             
             Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("").getStatusCode());
             Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("_searchguard/authinfo").getStatusCode());
-            Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("worf", "wrong"))).getStatusCode());
-            Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
+            Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("worf", "wrong"))).getStatusCode());
+            Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("nagilum", "nagilum"))).getStatusCode());
     }
 
     /*@Test
@@ -1452,8 +1462,8 @@ public class SGTests extends AbstractUnitTest {
             //init is somewhat async
             Thread.sleep(2000);        
             Assert.assertEquals(HttpStatus.SC_UNAUTHORIZED, executeGetRequest("").getStatusCode());
-            Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("spock", "spocksecret"))).getStatusCode());
-            HttpResponse res =  executeGetRequest("_searchguard/authinfo?pretty", new BasicHeader("Authorization", "Basic "+Base64Helper.encodeBasicHeader("spock", "spocksecret")));
+            Assert.assertEquals(HttpStatus.SC_OK, executeGetRequest("", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("spock", "spocksecret"))).getStatusCode());
+            HttpResponse res =  executeGetRequest("_searchguard/authinfo?pretty", new BasicHeader("Authorization", "Basic "+encodeBasicHeader("spock", "spocksecret")));
             Assert.assertTrue(res.getBody().contains("nested1"));
             Assert.assertTrue(res.getBody().contains("nested2"));
             Assert.assertTrue(res.getBody().toLowerCase().contains("spock"));
