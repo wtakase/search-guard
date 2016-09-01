@@ -59,7 +59,7 @@ public class ConfigurationLoader {
 
     public Map<String, Settings> load(final String[] events) {
 
-        try {
+        /*try {
             IndicesExistsRequest ier = new IndicesExistsRequest("searchguard");
             ier.putHeader(ConfigConstants.SG_CONF_REQUEST_HEADER, "true");
             client.get().admin().indices().exists(ier, new ActionListener<IndicesExistsResponse>() {
@@ -89,7 +89,7 @@ public class ConfigurationLoader {
             } else {
                 log.warn("Unexpected exception while checking if searchguard index exists: {}", e2.toString());         
             }
-        }
+        }*/
         
         final Map<String, Settings> rs = new HashMap<String, Settings>(events.length);
         
