@@ -113,7 +113,7 @@ public class SearchGuardAdmin {
         options.addOption(Option.builder("ksalias").longOpt("keystore-alias").hasArg().argName("alias").desc("Keystore alias").build());
         options.addOption(Option.builder("ec").longOpt("enabled-ciphers").hasArg().argName("cipers").desc("Comma separated list of TLS ciphers").build());
         options.addOption(Option.builder("ep").longOpt("enabled-protocols").hasArg().argName("protocols").desc("Comma separated list of TLS protocols").build());
-        options.addOption(Option.builder("us").longOpt("update_settings").hasArg().argName("number of replicas").desc("update settings").build());
+        options.addOption(Option.builder("uc").longOpt("update_config").hasArg().desc("for update config on all nodes").build());
 
         
         String hostname = "localhost";
@@ -137,7 +137,7 @@ public class SearchGuardAdmin {
         String tsAlias = null;
         String[] enabledProtocols = new String[0];
         String[] enabledCiphers = new String[0];
-        Integer updateSettings = null;
+        boolean updateConfig;
         
         CommandLineParser parser = new DefaultParser();
         try {
@@ -178,7 +178,7 @@ public class SearchGuardAdmin {
                 enabledProtocols = enabledProtocolsString.split(",");
             }
             
-            updateSettings = line.hasOption("us")?Integer.parseInt(line.getOptionValue("us")):null;
+            updateConfig = line.hasOption("uc");
             
         }
         catch( ParseException exp ) {
@@ -250,12 +250,13 @@ public class SearchGuardAdmin {
                 .build()
                 .addTransportAddress(new InetSocketTransportAddress(new InetSocketAddress(hostname, port)))) {
 
-            if(updateSettings != null) { 
-                Settings indexSettings = Settings.builder().put("index.number_of_replicas", updateSettings).build();                
+            if(updateConfig) { 
+                Settings indexSettings = Settings.builder()
+                        .put("index.auto_expand_replicas", "all")
+                        .build();                
                 tc.execute(ConfigUpdateAction.INSTANCE, new ConfigUpdateRequest(new String[]{"config","roles","rolesmapping","internalusers","actiongroups"})).actionGet();                
                 final UpdateSettingsResponse response = tc.admin().indices().updateSettings((new UpdateSettingsRequest("searchguard").settings(indexSettings))).actionGet();
                 System.out.println("Reload config on all nodes");
-                System.out.println("Update number of replicas to "+(updateSettings) +" with result: "+response.isAcknowledged());
                 System.exit(response.isAcknowledged()?0:-1);
             }      
             
@@ -293,7 +294,7 @@ public class SearchGuardAdmin {
                 final boolean indexCreated = tc.admin().indices().create(new CreateIndexRequest("searchguard")
                 // .mapping("config", source)
                 // .settings(settings)
-                .settings("index.number_of_shards", 1, "index.number_of_replicas", chr.getNumberOfDataNodes()-1)
+                .settings("index.number_of_shards", 1, "index.auto_expand_replicas", "all")
                         ).actionGet().isAcknowledged();
 
                 if (indexCreated) {
