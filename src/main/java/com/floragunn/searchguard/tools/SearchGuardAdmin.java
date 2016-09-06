@@ -252,7 +252,7 @@ public class SearchGuardAdmin {
 
             if(updateConfig) { 
                 Settings indexSettings = Settings.builder()
-                        .put("index.auto_expand_replicas", "all")
+                        .put("index.auto_expand_replicas", "0-all")
                         .build();                
                 tc.execute(ConfigUpdateAction.INSTANCE, new ConfigUpdateRequest(new String[]{"config","roles","rolesmapping","internalusers","actiongroups"})).actionGet();                
                 final UpdateSettingsResponse response = tc.admin().indices().updateSettings((new UpdateSettingsRequest("searchguard").settings(indexSettings))).actionGet();
@@ -294,7 +294,7 @@ public class SearchGuardAdmin {
                 final boolean indexCreated = tc.admin().indices().create(new CreateIndexRequest("searchguard")
                 // .mapping("config", source)
                 // .settings(settings)
-                .settings("index.number_of_shards", 1, "index.auto_expand_replicas", "all")
+                .settings("index.number_of_shards", 1, "index.auto_expand_replicas", "0-all")
                         ).actionGet().isAcknowledged();
 
                 if (indexCreated) {
