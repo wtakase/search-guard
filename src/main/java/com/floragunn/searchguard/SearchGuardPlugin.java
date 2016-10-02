@@ -22,6 +22,8 @@ import java.util.Collection;
 
 import org.elasticsearch.action.ActionModule;
 import org.elasticsearch.common.inject.Module;
+import org.elasticsearch.common.logging.ESLogger;
+import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.http.HttpServerModule;
 import org.elasticsearch.plugins.Plugin;
@@ -38,15 +40,18 @@ import com.floragunn.searchguard.filter.SearchGuardFilter;
 import com.floragunn.searchguard.http.SearchGuardHttpServerTransport;
 import com.floragunn.searchguard.rest.SearchGuardInfoAction;
 import com.floragunn.searchguard.ssl.util.SSLConfigConstants;
+import com.floragunn.searchguard.support.ReflectionHelper;
 import com.floragunn.searchguard.transport.SearchGuardTransportService;
 import com.google.common.collect.ImmutableList;
 
 public final class SearchGuardPlugin extends Plugin {
 
+    private final ESLogger log = Loggers.getLogger(this.getClass());
     private static final String CLIENT_TYPE = "client.type";
     private final Settings settings;
     private final boolean client;
     private final boolean httpSSLEnabled;
+    private final boolean tribeNodeClient;
 
     public SearchGuardPlugin(final Settings settings) {
         super();
@@ -56,14 +61,17 @@ public final class SearchGuardPlugin extends Plugin {
         }
         this.settings = settings;
         client = !"node".equals(this.settings.get(CLIENT_TYPE, "node"));
+        boolean tribeNode = this.settings.getAsBoolean("action.master.force_local", false) && this.settings.getByPrefix("tribe").getAsMap().size() > 0;
+        tribeNodeClient = this.settings.get("tribe.name", null) != null;
         httpSSLEnabled = settings.getAsBoolean(SSLConfigConstants.SEARCHGUARD_SSL_HTTP_ENABLED,
                 SSLConfigConstants.SEARCHGUARD_SSL_HTTP_ENABLED_DEFAULT);
         
-        if(client && System.getProperty("sg.nowarn.client") ==  null) {
-            System.out.println("*************************************************************");
-            System.out.println("'Search Guard 2' plugin must not be installed on client nodes.");
-            System.out.println("'Search Guard SSL' plugin is enough");
-            System.out.println("*************************************************************");
+        log.info("Node [{}] is a transportClient: {}/tribeNode: {}/tribeNodeClient: {}", settings.get("node.name"), client, tribeNode, tribeNodeClient);
+
+        if(client && System.getProperty("sg.nowarn.client") == null) {
+            System.out.println("*************************************************************************");
+            System.out.println("'Search Guard 2' plugin is normally not needed on transport client nodes.");
+            System.out.println("*************************************************************************");
         }
     }
 
@@ -79,7 +87,7 @@ public final class SearchGuardPlugin extends Plugin {
     
     public Collection<Module> shardModules(Settings settings)
     {
-      if (!client) {
+      if (!client && !tribeNodeClient) {
         //TODO query caching 
         return ImmutableList.<Module>of(new SearchGuardIndexSearcherWrapperModule());
       }
@@ -89,7 +97,7 @@ public final class SearchGuardPlugin extends Plugin {
     @Override
     public Collection<Module> nodeModules() {
         final Collection<Module> modules = new ArrayList<>();
-        if (!client) {
+        if (!client && !tribeNodeClient) {
             modules.add(new ConfigurationModule());
             modules.add(new BackendModule());
             modules.add(new AuditLogModule());
@@ -98,26 +106,40 @@ public final class SearchGuardPlugin extends Plugin {
     }
 
     public void onModule(final ActionModule module) {
-        module.registerAction(ConfigUpdateAction.INSTANCE, TransportConfigUpdateAction.class);
-        if (!client) {            
-            module.registerFilter(SearchGuardFilter.class);
+        
+        if(!tribeNodeClient) {
+            module.registerAction(ConfigUpdateAction.INSTANCE, TransportConfigUpdateAction.class);
+            if (!client) {
+                module.registerFilter(SearchGuardFilter.class);
+            }
         }
     }
 
-    public void onModule(final RestModule module) {
-        if (!client) {
+    @SuppressWarnings("unchecked")
+	public void onModule(final RestModule module) {
+        if (!client && !tribeNodeClient) {
             module.addRestAction(SearchGuardInfoAction.class);
+            if(ReflectionHelper.canLoad("com.floragunn.dlic.rest.api.SearchGuardRestApiActions")) {
+                try {
+                	ReflectionHelper
+                    .load("com.floragunn.dlic.rest.api.SearchGuardRestApiActions")
+                    .getDeclaredMethod("addActions", RestModule.class)
+                    .invoke(null, module);                	
+                } catch(Exception ex) {
+                	log.error("Failed to register SearchGuardRestApiActions, management API not available. Cause: {}", ex.getMessage());
+                }
+            }           
         }
     }
 
     public void onModule(final TransportModule module) {
-        if (!client) {
+        if (!client && !tribeNodeClient) {
             module.setTransportService(SearchGuardTransportService.class, name());
         }
     }
     
     public void onModule(final HttpServerModule module) {
-        if (!client && httpSSLEnabled) {
+        if (!client && httpSSLEnabled && !tribeNodeClient) {
             module.setHttpServerTransport(SearchGuardHttpServerTransport.class, name());
         }
     }
