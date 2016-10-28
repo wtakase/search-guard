@@ -30,7 +30,6 @@ import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.tasks.Task;
 
 import com.floragunn.searchguard.auditlog.AuditLog;
 import com.floragunn.searchguard.auth.BackendRegistry;
@@ -72,7 +71,7 @@ public class SearchGuardFilter implements ActionFilter {
     }
 
     @Override
-    public void apply(Task task, final String action, final ActionRequest request, final ActionListener listener, final ActionFilterChain chain) {
+    public void apply(final String action, final ActionRequest request, final ActionListener listener, final ActionFilterChain chain) {
 
         // - types testen
         // - remote address testn
@@ -108,7 +107,7 @@ public class SearchGuardFilter implements ActionFilter {
                 return;
             }
             
-            chain.proceed(task, action, request, listener);
+            chain.proceed(action, request, listener);
             return;
         }
 
@@ -129,7 +128,7 @@ public class SearchGuardFilter implements ActionFilter {
                     log.trace("No user, will allow only standard discovery and monitoring actions");
                 }
 
-                chain.proceed(task, action, request, listener);
+                chain.proceed(action, request, listener);
                 return;
             } else {
                 log.debug("unauthenticated request {} for user {}", action, user);
@@ -157,7 +156,7 @@ public class SearchGuardFilter implements ActionFilter {
                 return;
             }
             auditLog.logAuthenticatedRequest(request, action);
-            chain.proceed(task, action, request, listener);
+            chain.proceed(action, request, listener);
             return;
         } else {
             auditLog.logMissingPrivileges(action, request);

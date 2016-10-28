@@ -35,7 +35,6 @@ import org.elasticsearch.common.logging.Loggers;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.transport.TransportAddress;
-import org.elasticsearch.tasks.Task;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.elasticsearch.transport.Transport;
 import org.elasticsearch.transport.TransportChannel;
@@ -44,6 +43,9 @@ import org.elasticsearch.transport.TransportRequestHandler;
 import org.elasticsearch.transport.TransportRequestOptions;
 import org.elasticsearch.transport.TransportResponse;
 import org.elasticsearch.transport.TransportResponseHandler;
+import org.elasticsearch.transport.TransportService;
+import org.elasticsearch.transport.local.LocalTransportChannel;
+import org.elasticsearch.transport.netty.NettyTransportChannel;
 
 import com.floragunn.searchguard.auditlog.AuditLog;
 import com.floragunn.searchguard.auth.BackendRegistry;
@@ -177,28 +179,35 @@ public class SearchGuardTransportService extends SearchGuardSSLTransportService 
 
     @Override
     protected void messageReceivedDecorate(final TransportRequest request, final TransportRequestHandler handler,
-            final TransportChannel transportChannel, Task task) throws Exception {
+            final TransportChannel transportChannel) throws Exception {
         try {
             final com.floragunn.searchguard.configuration.RequestHolder context = new com.floragunn.searchguard.configuration.RequestHolder(
                     request);
             com.floragunn.searchguard.configuration.RequestHolder.setCurrent(context);
             
-            request.putInContext(ConfigConstants.SG_CHANNEL_TYPE, transportChannel.getChannelType());
-            
-            //bypass non-netty requests
-            if(transportChannel.getChannelType().equals("local") || transportChannel.getChannelType().equals("direct")) {
-                super.messageReceivedDecorate(request, handler, transportChannel, task);
-                return;
-            }
-            
+			if (transportChannel instanceof LocalTransportChannel) {
+				request.putInContext(ConfigConstants.SG_CHANNEL_TYPE, "local");
+			} else {
+				if (transportChannel instanceof NettyTransportChannel) {
+					request.putInContext(ConfigConstants.SG_CHANNEL_TYPE, "netty");
+				} else {
+					request.putInContext(ConfigConstants.SG_CHANNEL_TYPE, "direct");
+				}
+			}
+			// bypass non-netty requests
+			if (!(transportChannel instanceof NettyTransportChannel)) {
+				super.messageReceivedDecorate(request, handler, transportChannel);
+				return;
+			}           
+                        
             //if the incoming request is an internal:* or a shard request allow only if request was sent by a server node
             //if transport channel is not a netty channel but a direct or local channel (e.g. send via network) then allow it (regardless of beeing a internal: or shard request)
             if (!isInterClusterRequest(request) 
                     && (transportChannel.action().startsWith("internal:") || transportChannel.action().contains("["))) {
                 auditLog.logMissingPrivileges(transportChannel.action(), request);
-                log.error("Internal or shard requests not allowed from a non-server node for transport type "+transportChannel.getChannelType());
+                log.error("Internal or shard requests not allowed from a non-server node for transport type "+transportChannel.getClass());
                 transportChannel.sendResponse(new ElasticsearchSecurityException(
-                        "Internal or shard requests not allowed from a non-server node for transport type "+transportChannel.getChannelType()));
+                        "Internal or shard requests not allowed from a non-server node for transport type "+transportChannel.getClass()));
                 return;
             }
             
@@ -210,9 +219,9 @@ public class SearchGuardTransportService extends SearchGuardSSLTransportService 
 
             if ((principal = request.getFromContext(ConfigConstants.SG_SSL_TRANSPORT_PRINCIPAL)) == null) {
                 Exception ex = new ElasticsearchSecurityException(
-                        "No SSL client certificates found for transport type "+transportChannel.getChannelType()+". Search Guard needs the Search Guard SSL plugin to be installed");
+                        "No SSL client certificates found for transport type "+transportChannel.getClass()+". Search Guard needs the Search Guard SSL plugin to be installed");
                 auditLog.logSSLException(request, ex, transportChannel.action());
-                log.error("No SSL client certificates found for transport type "+transportChannel.getChannelType()+". Search Guard needs the Search Guard SSL plugin to be installed");
+                log.error("No SSL client certificates found for transport type "+transportChannel.getClass()+". Search Guard needs the Search Guard SSL plugin to be installed");
                 transportChannel.sendResponse(ex);
                 return;
             } else {
@@ -275,7 +284,7 @@ public class SearchGuardTransportService extends SearchGuardSSLTransportService 
                     }
                 }
                 
-                super.messageReceivedDecorate(request, handler, transportChannel, task);
+                super.messageReceivedDecorate(request, handler, transportChannel);
                 //LogHelper.logUserTrace("--> Put user {} in context (from sg_ssl_transport_principal)", principal);
             }
 
