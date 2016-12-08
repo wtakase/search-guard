@@ -259,3 +259,9 @@ sg_dlsnoinvest:
       '*':
         - ALL
       _dls_: '{"term" : {"category_code" : "software"}}'
+
+sg_role01_role02:
+  indices:
+    'role01_role02':
+      '*':
+        - ALL

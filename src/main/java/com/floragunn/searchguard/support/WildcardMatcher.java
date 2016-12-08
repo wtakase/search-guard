@@ -47,6 +47,20 @@ public class WildcardMatcher {
         return true;
     }
 
+    public static boolean matchAllPatterns(final String[] pattern, final String[] candidate) {
+
+        int matchedPatternNum = 0;
+
+        for (int i = 0; i < pattern.length; i++) {
+            final String string = pattern[i];
+            if (matchAny(string, candidate)) {
+                matchedPatternNum++;
+            }
+        }
+
+        return matchedPatternNum == pattern.length && pattern.length > 0;
+    }
+
     public static boolean matchAny(final String pattern, final String[] candidate) {
 
         for (int i = 0; i < candidate.length; i++) {

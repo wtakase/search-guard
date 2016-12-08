@@ -101,3 +101,8 @@ sg_writer:
 sg_dlsnoinvest:
   users:
     - dlsnoinvest
+
+sg_role01_role02:
+  and_backendroles:
+    - role01
+    - role02

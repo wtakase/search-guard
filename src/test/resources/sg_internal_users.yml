@@ -76,3 +76,15 @@ writer:
   hash: $2a$12$LZvbDVnegkTbEFTu9hHnWO4HIrdB9rGaKcEOID5n0VV4j58cnvyZ.
 dlsnoinvest:
   hash: $2a$12$9Zr4IgoJRqK6xJq4xjoa6OZAnY4QOQ6xIhcCxeYoQtB/HriMkeJSC
+user_role01:
+  hash: $2a$12$XrBfLQh2T8wIzpxE5vzhUOPjjGfONcD8UEjd5IT5KveG8ULZaj04.
+  # password is: user_role01
+  roles:
+    - role01
+user_role01_role02_role03:
+  hash: $2a$12$6.4Y6L//xeKQ7t8YEG0s6OH4F4q9gMw0J8E0GjmUMNZeyIWu1IRWS
+  # password is: user_role01_role02_role03
+  roles:
+    - role01
+    - role02
+    - role03
